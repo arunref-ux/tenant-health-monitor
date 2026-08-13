@@ -78,7 +78,7 @@ export type OpportunityType =
   | "Adoption Gap"
   | "Usage Decline"
   | "Activation Opportunity"
-  | "Feature Adoption";
+  | "Engagement Opportunity";
 
 export type OpportunityPriority = "High" | "Medium" | "Low";
 
@@ -150,4 +150,25 @@ export interface OverviewSummary {
     suggestion: string;
   }>;
   topOpportunities: Opportunity[];
+}
+
+/**
+ * Minimal user-level model (iteration 1.1).
+ * Kept intentionally small: eligibility / activation / activity per app only.
+ */
+export interface UserAppState {
+  appId: string;
+  eligible: boolean;
+  activated: boolean;
+  active: boolean;
+}
+
+export interface TenantUser {
+  id: string;
+  tenantId: string;
+  /** activated the Aurumi platform at all */
+  activated: boolean;
+  weeklyActive: boolean;
+  monthlyActive: boolean;
+  apps: UserAppState[];
 }

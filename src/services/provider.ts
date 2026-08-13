@@ -1,4 +1,4 @@
-import { buildTenants } from "@/domain/generator";
+import { buildTenants, todayISO } from "@/domain/generator";
 import { calculateHealth } from "@/domain/health";
 import { detectOpportunities } from "@/domain/opportunities";
 import type {
@@ -37,17 +37,26 @@ function delay<T>(value: T): Promise<T> {
   });
 }
 
-let cache: TenantRecord[] | null = null;
+const cache = new Map<string, TenantRecord[]>();
+
+/**
+ * Simulated as-of date. Data is deterministic for a given seed + as-of date,
+ * and defaults to today so the prototype never shows stale dates.
+ */
+export function buildDataset(asOfDate: string = todayISO()): TenantRecord[] {
+  const cached = cache.get(asOfDate);
+  if (cached) return cached;
+  const records = buildTenants({ asOfDate }).map((tenant) => ({
+    ...tenant,
+    health: calculateHealth(tenant),
+    opportunities: detectOpportunities(tenant),
+  }));
+  cache.set(asOfDate, records);
+  return records;
+}
 
 function dataset(): TenantRecord[] {
-  if (!cache) {
-    cache = buildTenants().map((tenant) => ({
-      ...tenant,
-      health: calculateHealth(tenant),
-      opportunities: detectOpportunities(tenant),
-    }));
-  }
-  return cache;
+  return buildDataset();
 }
 
 function adoptionBucket(v: number) {
@@ -56,7 +65,7 @@ function adoptionBucket(v: number) {
   return "low";
 }
 
-function applyFilters(records: TenantRecord[], f: PortfolioFilters = {}): TenantRecord[] {
+export function applyFilters(records: TenantRecord[], f: PortfolioFilters = {}): TenantRecord[] {
   const search = (f.search ?? "").trim().toLowerCase();
   let rows = records.filter((t) => {
     if (search && !`${t.name} ${t.industry}`.toLowerCase().includes(search)) return false;
@@ -120,7 +129,7 @@ function buildOverview(records: TenantRecord[]): OverviewSummary {
     .sort((a, b) => a.health.score - b.health.score)
     .slice(0, 6)
     .map((t) => {
-      const order = ["Usage Decline", "Activation Opportunity", "Adoption Gap", "Feature Adoption"];
+      const order = ["Usage Decline", "Activation Opportunity", "Adoption Gap", "Engagement Opportunity"];
       const top = [...t.opportunities].sort(
         (a, b) => order.indexOf(a.type) - order.indexOf(b.type),
       )[0];
@@ -164,7 +173,7 @@ function suggestionFor(type?: string) {
       return "Run a usage review call with the sponsor";
     case "Activation Opportunity":
       return "Launch an onboarding push for unactivated employees";
-    case "Feature Adoption":
+    case "Engagement Opportunity":
       return "Send a re-engagement nudge to dormant users";
     default:
       return "Review account with Customer Success";
