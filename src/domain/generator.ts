@@ -112,7 +112,7 @@ function buildHistory(
     const eased = t * t * (3 - 2 * t);
     const noise = (rnd() - 0.5) * 0.05;
     const weekday = new Date(dayISO(HISTORY_DAYS - 1 - i)).getUTCDay();
-    const weekendDip = weekday === 0 ? -0.28 : weekday === 6 ? -0.18 : 0;
+    const weekendDip = weekday === 0 ? -0.2 : weekday === 6 ? -0.12 : 0;
     const active = (startActive + (endActive - startActive) * eased) * (1 + noise + weekendDip);
     const adoption = (startAdoption + (endAdoption - startAdoption) * eased) * (1 + noise * 0.4);
     points.push({

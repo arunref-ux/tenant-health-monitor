@@ -120,14 +120,17 @@ function buildOverview(records: TenantRecord[]): OverviewSummary {
     .sort((a, b) => a.health.score - b.health.score)
     .slice(0, 6)
     .map((t) => {
-      const top = t.opportunities[0];
+      const order = ["Usage Decline", "Activation Opportunity", "Adoption Gap", "Feature Adoption"];
+      const top = [...t.opportunities].sort(
+        (a, b) => order.indexOf(a.type) - order.indexOf(b.type),
+      )[0];
       return {
         tenantId: t.id,
         tenantName: t.name,
         category: t.health.category,
         score: t.health.score,
         trendPct: t.trendPct,
-        reason: top ? top.title : t.health.negatives[0]?.label ?? "Health below threshold",
+        reason: top ? top.title : (t.health.negatives[0]?.label ?? "Health below threshold"),
         suggestion: suggestionFor(top?.type),
       };
     });

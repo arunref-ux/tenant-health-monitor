@@ -69,6 +69,7 @@ export function AdoptionTrendChart({ data, height = 260 }: { data: UsagePoint[];
           stroke="var(--chart-1)"
           strokeWidth={2}
           fill="url(#activeFill)"
+          isAnimationActive={false}
         />
         <Line
           yAxisId="right"
@@ -77,6 +78,7 @@ export function AdoptionTrendChart({ data, height = 260 }: { data: UsagePoint[];
           stroke="var(--chart-2)"
           strokeWidth={2}
           dot={false}
+          isAnimationActive={false}
         />
       </ComposedChart>
     </ResponsiveContainer>
