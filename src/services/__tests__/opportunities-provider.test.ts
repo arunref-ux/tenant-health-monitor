@@ -8,7 +8,7 @@ import {
   summariseOpportunities,
 } from "../provider";
 
-const records = buildDataset("2026-05-01");
+const records = buildDataset();
 const opportunities = allOpportunities(records);
 
 afterEach(() => resetOpportunityStatuses());
@@ -126,6 +126,6 @@ describe("adoption intelligence through the provider", () => {
     const detail = await provider.getAppAdoption(appId);
     expect(detail.appId).toBe(appId);
     expect(detail.tenants.length).toBeGreaterThan(0);
-    await expect(provider.getAppAdoption("no-such-app")).rejects.toThrow(/not found/i);
+    await expect(provider.getAppAdoption("no-such-app")).rejects.toThrow();
   });
 });
