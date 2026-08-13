@@ -50,8 +50,9 @@ export function buildUsers(input: UserPopulationInput): TenantUser[] {
     const apps: UserAppState[] = APPS.map((app) => {
       const eligible = rnd() < eligibilityShare(app.id, input.industry);
       // Eligible users can only activate an app if they activated the platform.
-      const appActivated = eligible && activated && rnd() < clamp(targets[app.id] * 1.25, 0.05, 0.99);
-      const appActive = appActivated && monthlyActive && rnd() < clamp(targets[app.id] + 0.2, 0.1, 0.98);
+      const target = targets[app.id] ?? 0.5;
+      const appActivated = eligible && activated && rnd() < clamp(target * 1.25, 0.05, 0.99);
+      const appActive = appActivated && monthlyActive && rnd() < clamp(target + 0.2, 0.1, 0.98);
       return { appId: app.id, eligible, activated: appActivated, active: appActive };
     });
 
