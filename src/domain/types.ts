@@ -109,26 +109,166 @@ export interface HealthScore {
   negatives: HealthSignal[];
 }
 
+/**
+ * Opportunity is a first-class domain object (iteration 3).
+ * It is detected from simulated Tenant/User/App/TTYB data, carries its own
+ * evidence, and is surfaced through the Tenant, Aurumi and Portfolio lenses.
+ */
 export type OpportunityType =
-  | "Adoption Gap"
-  | "TTYB Adoption Opportunity"
+  | "Activation Gap"
+  | "Engagement Gap"
+  | "App Adoption Gap"
   | "Usage Decline"
-  | "Activation Opportunity"
-  | "Engagement Opportunity";
+  | "TTYB Adoption"
+  | "Cross-App Adoption";
 
-export type OpportunityPriority = "High" | "Medium" | "Low";
+export type OpportunitySeverity = "High" | "Medium" | "Low";
+/** @deprecated kept as an alias so badge components stay unchanged */
+export type OpportunityPriority = OpportunitySeverity;
+
+export type OpportunityStatus = "Open" | "Dismissed";
+
+/** Primary perspective an opportunity is reported through. */
+export type OpportunityLens = "Tenant" | "Aurumi" | "Portfolio";
+
+/** A single measured fact backing an opportunity. Never free-form marketing copy. */
+export interface OpportunityEvidence {
+  label: string;
+  value: string;
+  detail?: string;
+}
 
 export interface Opportunity {
   id: string;
   tenantId: string;
   tenantName: string;
   type: OpportunityType;
+  severity: OpportunitySeverity;
   title: string;
   description: string;
-  priority: OpportunityPriority;
-  /** estimated additional users that could be activated/reactivated */
-  potentialUsers: number;
+  evidence: OpportunityEvidence[];
+  detectedAt: string; // ISO yyyy-mm-dd, anchored to the simulation as-of date
+  status: OpportunityStatus;
+  lens: OpportunityLens;
+  /** 0..100, produced by the prioritisation module (domain/prioritize.ts) */
+  priorityScore: number;
+  /** users the observation applies to */
+  affectedUsers: number;
+  /** apps this opportunity concerns, when applicable */
+  appIds: string[];
+  appNames: string[];
+  /** relevant 30-day trend for the observation */
+  trendPct: number;
+  trend: TrendDirection;
+  /** health context — an opportunity matters more at an At-Risk Tenant */
+  healthCategory: HealthCategory;
+  healthScore: number;
+  /** factual note on why the observation matters — no business-impact claims */
+  whyItMatters: string;
 }
+
+export interface OpportunityFilters {
+  search?: string;
+  type?: OpportunityType | "all";
+  severity?: OpportunitySeverity | "all";
+  status?: OpportunityStatus | "all";
+  tenantId?: string | "all";
+  lens?: OpportunityLens | "all";
+  appId?: string;
+  sortBy?: "priority" | "severity" | "affectedUsers" | "tenant" | "type" | "detected";
+  sortDir?: "asc" | "desc";
+}
+
+export interface OpportunitySummary {
+  open: number;
+  dismissed: number;
+  highSeverity: number;
+  tenantsAffected: number;
+  trendingUp: number;
+}
+
+/* ---------------------------------------------------------------------------
+ * Aurumi lens — adoption intelligence
+ * ------------------------------------------------------------------------ */
+
+export interface AdoptionThresholds {
+  /** adoption at or above this is "high" */
+  high: number;
+  /** adoption at or above this is "medium", below it is "low" */
+  medium: number;
+}
+
+export interface AppTenantAdoption {
+  tenantId: string;
+  tenantName: string;
+  industry: Industry;
+  eligibleUsers: number;
+  activatedUsers: number;
+  activeUsers: number;
+  adoption: number;
+  /** eligible users who are not active */
+  gapUsers: number;
+  trendPct: number;
+  trend: TrendDirection;
+  healthCategory: HealthCategory;
+  healthScore: number;
+}
+
+export interface AppAdoptionRow {
+  appId: string;
+  appName: string;
+  category: AppCategory;
+  tenantsWithAccess: number;
+  eligibleUsers: number;
+  activatedUsers: number;
+  activeUsers: number;
+  adoption: number;
+  trendPct: number;
+  trend: TrendDirection;
+  /** Tenants in the "low" adoption bucket with a meaningful eligible population */
+  tenantsWithGap: number;
+  distribution: { high: number; medium: number; low: number };
+}
+
+export interface AppAdoptionDetail extends AppAdoptionRow {
+  thresholds: AdoptionThresholds;
+  trendSeries: UsagePoint[];
+  tenants: AppTenantAdoption[];
+}
+
+export interface CrossAppPattern {
+  id: string;
+  appAId: string;
+  appAName: string;
+  appAAdoption: number;
+  appBId: string;
+  appBName: string;
+  appBAdoption: number;
+  /** appA adoption − appB adoption */
+  delta: number;
+  pattern: string;
+  tenantsAffected: number;
+  description: string;
+}
+
+export interface AdoptionIntelligence {
+  thresholds: AdoptionThresholds;
+  apps: AppAdoptionRow[];
+  patterns: CrossAppPattern[];
+  totals: { eligibleUsers: number; activeUsers: number; adoption: number; tenants: number };
+}
+
+/** A portfolio-level observation that can be drilled into. */
+export interface PortfolioSignal {
+  id: string;
+  label: string;
+  detail: string;
+  tone: "default" | "warning" | "danger";
+  /** drilldown target */
+  appId?: string;
+  target: "adoption" | "opportunities" | "tenants" | "ttyb";
+}
+
 
 export interface Tenant {
   id: string;
