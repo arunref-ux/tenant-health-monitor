@@ -85,7 +85,6 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 function OpportunitiesPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const queryClient = useQueryClient();
 
   const [text, setText] = useState("");
   const [severity, setSeverity] = useState<OpportunitySeverity | "all">("all");
