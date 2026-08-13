@@ -16,12 +16,12 @@ const NAV = [
   { label: "Overview", to: "/", icon: LayoutDashboard },
   { label: "Tenants", to: "/tenants", icon: Building2 },
   { label: "TTYB", to: "/ttyb", icon: Activity },
+  { label: "Opportunities", to: "/opportunities", icon: Lightbulb },
+  { label: "Adoption Intelligence", to: "/adoption", icon: Boxes },
 ];
 
 const FUTURE = [
-  { label: "App Adoption", icon: Boxes },
   { label: "Business Skills", icon: GraduationCap },
-  { label: "Opportunities", icon: Lightbulb },
   { label: "Interventions", icon: Wrench },
   { label: "Event Monitor", icon: Radio },
 ];
@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <div className="mt-auto px-2.5 pt-6 text-[11px] leading-relaxed text-sidebar-foreground/50">
-          Iteration 2 · simulated data
+          Iteration 3 · simulated data
         </div>
       </aside>
 

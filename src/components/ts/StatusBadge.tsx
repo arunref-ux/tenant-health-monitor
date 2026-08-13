@@ -1,5 +1,10 @@
 import { cn } from "@/lib/utils";
-import type { HealthCategory, OpportunityPriority } from "@/domain/types";
+import type {
+  HealthCategory,
+  OpportunityLens,
+  OpportunityPriority,
+  OpportunityStatus,
+} from "@/domain/types";
 
 const healthStyles: Record<HealthCategory, string> = {
   Healthy: "bg-success-soft text-success border-success/25",
@@ -54,6 +59,32 @@ export function CategoryChip({ label }: { label: string }) {
   return (
     <span className="inline-flex items-center rounded border border-border bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
       {label}
+    </span>
+  );
+}
+
+const statusStyles: Record<OpportunityStatus, string> = {
+  Open: "bg-primary/10 text-primary border-primary/25",
+  Dismissed: "bg-muted text-muted-foreground border-border",
+};
+
+export function OpportunityStatusBadge({ status }: { status: OpportunityStatus }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
+        statusStyles[status],
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+export function LensChip({ lens }: { lens: OpportunityLens }) {
+  return (
+    <span className="inline-flex items-center rounded border border-border bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+      {lens} lens
     </span>
   );
 }
