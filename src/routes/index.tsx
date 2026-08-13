@@ -21,6 +21,7 @@ import { AdoptionTrendChart, Legend } from "@/components/ts/AdoptionTrendChart";
 import { EmptyState, ErrorState, KpiSkeleton, LoadingBlock } from "@/components/ts/States";
 import { overviewQuery } from "@/services/hooks";
 import { toDirection } from "@/domain/generator";
+import type { PortfolioSignal } from "@/domain/types";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -40,6 +41,49 @@ export const Route = createFileRoute("/")({
   }),
   component: OverviewPage,
 });
+
+const signalTone: Record<PortfolioSignal["tone"], string> = {
+  default: "border-border",
+  warning: "border-warning/40 bg-warning-soft/40",
+  danger: "border-danger/40 bg-danger-soft/40",
+};
+
+function SignalLink({ signal }: { signal: PortfolioSignal }) {
+  const className = `block h-full rounded-md border p-3 transition-colors hover:border-primary ${signalTone[signal.tone]}`;
+  const body = (
+    <>
+      <p className="text-sm font-medium text-foreground">{signal.label}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{signal.detail}</p>
+    </>
+  );
+
+  if (signal.target === "adoption") {
+    return (
+      <Link to="/adoption" search={{ app: signal.appId }} className={className}>
+        {body}
+      </Link>
+    );
+  }
+  if (signal.target === "ttyb") {
+    return (
+      <Link to="/ttyb" className={className}>
+        {body}
+      </Link>
+    );
+  }
+  if (signal.target === "tenants") {
+    return (
+      <Link to="/tenants" className={className}>
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <Link to="/opportunities" search={{ appId: signal.appId }} className={className}>
+      {body}
+    </Link>
+  );
+}
 
 function OverviewPage() {
   const { data, isPending, error, refetch } = useQuery(overviewQuery());
@@ -96,8 +140,47 @@ function OverviewPage() {
               icon={<TrendingUp className="size-4" />}
               hint="Weighted across eligible users"
             />
-            <KpiCard label="Open Opportunities" value={data.openOpportunities} icon={<Lightbulb className="size-4" />} />
+            <KpiCard
+              label="Activation Rate"
+              value={pct(data.activationRate)}
+              icon={<UsersRound className="size-4" />}
+              hint="Employees who have activated Aurumi"
+            />
+            <KpiCard
+              label="Engagement Rate"
+              value={pct(data.engagementRate)}
+              icon={<Users className="size-4" />}
+              hint="Activated users active in the last 30 days"
+            />
+            <KpiCard
+              label="Open Opportunities"
+              value={data.opportunities.open}
+              icon={<Lightbulb className="size-4" />}
+              hint={`${data.opportunities.highSeverity} high · ${data.opportunities.tenantsAffected} Tenants`}
+            />
           </div>
+
+          <SectionCard
+            title="Portfolio signals"
+            description="Observations that span the whole Tenant base — each one drills into the underlying data."
+            action={
+              <Link to="/opportunities" className="text-xs font-medium text-primary hover:underline">
+                All opportunities →
+              </Link>
+            }
+          >
+            {data.signals.length === 0 ? (
+              <EmptyState title="No portfolio-wide signals right now" />
+            ) : (
+              <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {data.signals.map((s) => (
+                  <li key={s.id}>
+                    <SignalLink signal={s} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
 
           <div className="grid gap-4 xl:grid-cols-3">
             <SectionCard
