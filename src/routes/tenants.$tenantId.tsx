@@ -144,6 +144,68 @@ function Tenant360() {
 
           <div className="grid gap-4 xl:grid-cols-3">
             <SectionCard
+              title="TTYB adoption"
+              description="Talk to Your Business — last 30 days"
+              className="xl:col-span-2"
+              action={
+                <TrendIndicator value={tenant.ttyb.trendPct} direction={tenant.ttyb.trend} />
+              }
+            >
+              <TtybTrendChart data={tenant.ttyb.history} height={196} />
+              <div className="mt-3 flex items-center justify-between">
+                <TtybLegend />
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                <MiniStat label="TTYB users" value={tenant.ttyb.users.toLocaleString()} />
+                <MiniStat
+                  label="TTYB adoption"
+                  value={pct(tenant.ttyb.adoption)}
+                  hint="Of activated users"
+                />
+                <MiniStat
+                  label="Interactions"
+                  value={tenant.ttyb.interactions.toLocaleString()}
+                />
+                <MiniStat
+                  label="Active users (7d)"
+                  value={tenant.ttyb.activeUsers.toLocaleString()}
+                />
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="Access pattern & extended reach"
+              description="Direct app usage vs TTYB for this Tenant"
+            >
+              <AccessPatternBar
+                directOnlyUsers={tenant.ttyb.directOnlyUsers}
+                bothUsers={tenant.ttyb.bothUsers}
+                extendedReachUsers={tenant.ttyb.extendedReachUsers}
+              />
+              <dl className="mt-4 space-y-2 text-sm">
+                <StatRow
+                  label="Direct app users"
+                  value={tenant.ttyb.directUsers.toLocaleString()}
+                />
+                <StatRow label="TTYB users" value={tenant.ttyb.users.toLocaleString()} />
+                <StatRow label="Using both paths" value={tenant.ttyb.bothUsers.toLocaleString()} />
+                <StatRow
+                  label="TTYB only (extended reach)"
+                  value={tenant.ttyb.extendedReachUsers.toLocaleString()}
+                />
+              </dl>
+              <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+                {tenant.ttyb.extendedReachUsers > 0
+                  ? `TTYB reaches ${tenant.ttyb.extendedReachUsers} users with no recent direct app activity — Aurumi's reach beyond the app UI.`
+                  : "No extended reach yet — every TTYB user is also an active direct app user."}
+              </p>
+            </SectionCard>
+          </div>
+
+
+
+          <div className="grid gap-4 xl:grid-cols-3">
+            <SectionCard
               title="App adoption"
               description="Direct application usage across eligible users"
               className="xl:col-span-2"
