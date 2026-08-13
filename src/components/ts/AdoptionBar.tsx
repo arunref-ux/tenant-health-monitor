@@ -5,15 +5,18 @@ export function AdoptionBar({
   className,
   showLabel = true,
   width = "w-24",
+  thresholds = [0.7, 0.45],
 }: {
   value: number;
   className?: string;
   showLabel?: boolean;
   width?: string;
+  /** [good, fair] cut-offs — TTYB adoption uses a lower scale than app adoption */
+  thresholds?: [number, number];
 }) {
   const pct = Math.round(value * 100);
   const tone =
-    value >= 0.7 ? "bg-success" : value >= 0.45 ? "bg-warning" : "bg-danger";
+    value >= thresholds[0] ? "bg-success" : value >= thresholds[1] ? "bg-warning" : "bg-danger";
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <div className={cn("h-1.5 overflow-hidden rounded-full bg-surface-muted", width)}>

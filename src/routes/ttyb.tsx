@@ -317,7 +317,7 @@ function TtybPage() {
                       {row.ttyb.users.toLocaleString()}
                     </td>
                     <td className="px-4 py-2.5">
-                      <AdoptionBar value={row.ttyb.adoption} />
+                      <AdoptionBar value={row.ttyb.adoption} thresholds={[0.35, 0.15]} />
                     </td>
                     <td className="px-4 py-2.5 text-right tabular">
                       {row.ttyb.interactions.toLocaleString()}
