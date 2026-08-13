@@ -103,10 +103,11 @@ describe("TTYB adoption opportunity rule", () => {
       activatedUsers: 120,
       ttyb: makeTtyb({ users: 4, adoption: 0.03 }),
     });
-    const opp = detectOpportunities(tenant).find((o) => o.type === "TTYB Adoption Opportunity");
+    const opp = detectOpportunities(tenant).find((o) => o.type === "TTYB Adoption");
     expect(opp).toBeDefined();
-    expect(opp!.priority).toBe("High");
-    expect(opp!.potentialUsers).toBeGreaterThan(0);
+    expect(opp!.severity).toBe("High");
+    expect(opp!.affectedUsers).toBeGreaterThan(0);
+    expect(opp!.evidence.length).toBeGreaterThan(2);
   });
 
   it("does not flag Tenants that already use TTYB broadly", () => {
@@ -116,7 +117,7 @@ describe("TTYB adoption opportunity rule", () => {
       ttyb: makeTtyb({ users: 60, adoption: 0.5 }),
     });
     expect(
-      detectOpportunities(tenant).some((o) => o.type === "TTYB Adoption Opportunity"),
+      detectOpportunities(tenant).some((o) => o.type === "TTYB Adoption"),
     ).toBe(false);
   });
 
@@ -127,7 +128,7 @@ describe("TTYB adoption opportunity rule", () => {
       ttyb: makeTtyb({ users: 2, adoption: 0.02 }),
     });
     expect(
-      detectOpportunities(tenant).some((o) => o.type === "TTYB Adoption Opportunity"),
+      detectOpportunities(tenant).some((o) => o.type === "TTYB Adoption"),
     ).toBe(false);
   });
 });
