@@ -251,7 +251,19 @@ function Tenant360() {
               </div>
             </SectionCard>
 
-            <SectionCard title="Opportunities" description="Detected from this Tenant's usage data">
+            <SectionCard
+              title="Priority opportunities"
+              description="Detected from this Tenant's usage data, ranked by priority"
+              action={
+                <Link
+                  to="/opportunities"
+                  search={{ tenantId: tenant.id }}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Open in Opportunities →
+                </Link>
+              }
+            >
               {tenant.opportunities.length === 0 ? (
                 <EmptyState
                   title="No open opportunities"
@@ -265,8 +277,28 @@ function Tenant360() {
                         <p className="text-sm font-medium text-foreground">{o.title}</p>
                         <PriorityBadge priority={o.severity} />
                       </div>
-                      <p className="mt-1 text-xs font-medium text-muted-foreground">{o.type}</p>
+                      <p className="mt-1 text-xs font-medium text-muted-foreground">
+                        {o.type} · {o.affectedUsers.toLocaleString()} users affected
+                      </p>
                       <p className="mt-1 text-sm text-muted-foreground">{o.description}</p>
+                      <ul className="mt-2 flex flex-wrap gap-1.5">
+                        {o.evidence.slice(0, 3).map((e) => (
+                          <li
+                            key={e.label}
+                            className="tabular rounded border border-border bg-surface-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                          >
+                            {e.label}: <span className="font-medium text-foreground">{e.value}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2 text-xs text-muted-foreground">{o.whyItMatters}</p>
+                      <Link
+                        to="/opportunities"
+                        search={{ tenantId: tenant.id, id: o.id }}
+                        className="mt-2 inline-block text-xs font-medium text-primary hover:underline"
+                      >
+                        View evidence →
+                      </Link>
                     </li>
                   ))}
                 </ul>
