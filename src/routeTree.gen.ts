@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OpportunitiesRouteImport } from './routes/opportunities'
 import { Route as TenantsRouteImport } from './routes/tenants'
 import { Route as TtybRouteImport } from './routes/ttyb'
 import { Route as TenantsIndexRouteImport } from './routes/tenants.index'
@@ -18,6 +19,11 @@ import { Route as TenantsTenantIdRouteImport } from './routes/tenants.$tenantId'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OpportunitiesRoute = OpportunitiesRouteImport.update({
+  id: '/opportunities',
+  path: '/opportunities',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TenantsRoute = TenantsRouteImport.update({
@@ -43,6 +49,7 @@ const TenantsTenantIdRoute = TenantsTenantIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/opportunities': typeof OpportunitiesRoute
   '/tenants': typeof TenantsRouteWithChildren
   '/ttyb': typeof TtybRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/opportunities': typeof OpportunitiesRoute
   '/ttyb': typeof TtybRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
   '/tenants': typeof TenantsIndexRoute
@@ -57,6 +65,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/opportunities': typeof OpportunitiesRoute
   '/tenants': typeof TenantsRouteWithChildren
   '/ttyb': typeof TtybRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
@@ -64,15 +73,28 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/tenants' | '/ttyb' | '/tenants/$tenantId' | '/tenants/'
+  fullPaths:
+    | '/'
+    | '/opportunities'
+    | '/tenants'
+    | '/ttyb'
+    | '/tenants/$tenantId'
+    | '/tenants/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ttyb' | '/tenants/$tenantId' | '/tenants'
+  to: '/' | '/opportunities' | '/ttyb' | '/tenants/$tenantId' | '/tenants'
   id:
-    '__root__' | '/' | '/tenants' | '/ttyb' | '/tenants/$tenantId' | '/tenants/'
+    | '__root__'
+    | '/'
+    | '/opportunities'
+    | '/tenants'
+    | '/ttyb'
+    | '/tenants/$tenantId'
+    | '/tenants/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  OpportunitiesRoute: typeof OpportunitiesRoute
   TenantsRoute: typeof TenantsRouteWithChildren
   TtybRoute: typeof TtybRoute
 }
@@ -84,6 +106,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/opportunities': {
+      id: '/opportunities'
+      path: '/opportunities'
+      fullPath: '/opportunities'
+      preLoaderRoute: typeof OpportunitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tenants': {
@@ -132,6 +161,7 @@ const TenantsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  OpportunitiesRoute: OpportunitiesRoute,
   TenantsRoute: TenantsRouteWithChildren,
   TtybRoute: TtybRoute,
 }
