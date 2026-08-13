@@ -1,6 +1,7 @@
-import { APPS, eligibilityShare } from "./catalog";
+import { APPS } from "./catalog";
 import { clamp, hashString, mulberry32 } from "./random";
-import type { Industry, Tenant, TenantAppUsage, TrendDirection, UsagePoint } from "./types";
+import { aggregateApps, aggregateTenant, buildUsers } from "./users";
+import type { Industry, Tenant, TenantAppUsage, TenantUser, TrendDirection, UsagePoint } from "./types";
 
 interface TenantSeed {
   name: string;
@@ -47,31 +48,26 @@ const slug = (name: string) =>
     .replace(/^-|-$/g, "");
 
 const HISTORY_DAYS = 30;
-const REFERENCE_DATE = new Date("2026-08-13T00:00:00Z");
 
-function dayISO(offsetFromEnd: number) {
-  const d = new Date(REFERENCE_DATE);
+/** ISO yyyy-mm-dd for "today" in UTC — default as-of date for the simulation. */
+export function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function dayISO(asOfDate: string, offsetFromEnd: number) {
+  const d = new Date(`${asOfDate}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - offsetFromEnd);
   return d.toISOString().slice(0, 10);
 }
 
-function buildApps(seed: TenantSeed, rnd: () => number, activated: number, mau: number): TenantAppUsage[] {
+function toAppUsage(
+  seed: TenantSeed,
+  rnd: () => number,
+  users: TenantUser[],
+): TenantAppUsage[] {
+  const aggregates = aggregateApps(users);
   return APPS.map((app) => {
-    const eligible = Math.max(3, Math.round(seed.employees * eligibilityShare(app.id, seed.industry)));
-    const activationCeiling = Math.min(eligible, activated);
-    const base = clamp(0.55 + seed.adoptionBias + (rnd() - 0.5) * 0.4, 0.12, 0.97);
-    // Core/HR apps land higher, specialised apps lower.
-    const categoryLift =
-      app.category === "HR" ? 0.18 : app.category === "Core" ? 0.1 : app.category === "Sales" ? -0.12 : -0.04;
-    const adoptionTarget = clamp(base + categoryLift, 0.1, 0.96);
-
-    const appActive = Math.round(Math.min(activationCeiling, eligible * adoptionTarget, mau));
-    const appActivated = Math.min(
-      activationCeiling,
-      Math.round(appActive * clamp(1.15 + rnd() * 0.25, 1.05, 1.6)),
-    );
-    const adoption = eligible ? appActive / eligible : 0;
-
+    const agg = aggregates.find((a) => a.appId === app.id)!;
     const trendPct = clamp(
       TRAJECTORY_TREND[seed.trajectory] + (rnd() - 0.5) * 0.22 + (app.category === "Sales" ? -0.04 : 0),
       -0.45,
@@ -82,9 +78,9 @@ function buildApps(seed: TenantSeed, rnd: () => number, activated: number, mau: 
       appId: app.id,
       appName: app.name,
       category: app.category,
-      eligibleUsers: eligible,
-      usage: { direct: { activatedUsers: appActivated, activeUsers: appActive } },
-      adoption,
+      eligibleUsers: agg.eligibleUsers,
+      usage: { direct: { activatedUsers: agg.activatedUsers, activeUsers: agg.activeUsers } },
+      adoption: agg.adoption,
       trendPct: Math.round(trendPct * 100) / 100,
       trend: toDirection(trendPct),
     };
@@ -98,6 +94,7 @@ export function toDirection(trendPct: number): TrendDirection {
 }
 
 function buildHistory(
+  asOfDate: string,
   rnd: () => number,
   endActive: number,
   endAdoption: number,
@@ -111,12 +108,13 @@ function buildHistory(
     // ease-in-out so the story is a curve, not a straight line
     const eased = t * t * (3 - 2 * t);
     const noise = (rnd() - 0.5) * 0.05;
-    const weekday = new Date(dayISO(HISTORY_DAYS - 1 - i)).getUTCDay();
+    const date = dayISO(asOfDate, HISTORY_DAYS - 1 - i);
+    const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
     const weekendDip = weekday === 0 ? -0.2 : weekday === 6 ? -0.12 : 0;
     const active = (startActive + (endActive - startActive) * eased) * (1 + noise + weekendDip);
     const adoption = (startAdoption + (endAdoption - startAdoption) * eased) * (1 + noise * 0.4);
     points.push({
-      date: dayISO(HISTORY_DAYS - 1 - i),
+      date,
       activeUsers: Math.max(1, Math.round(active)),
       adoption: clamp(adoption, 0.02, 0.99),
     });
@@ -124,40 +122,56 @@ function buildHistory(
   return points;
 }
 
-export function buildTenants(): Tenant[] {
-  return SEEDS.map((seed) => {
-    const rnd = mulberry32(hashString(seed.name));
-    const activated = Math.round(seed.employees * seed.activation);
-    const wau = Math.round(activated * seed.engagement);
-    const mau = Math.min(activated, Math.round(wau * clamp(1.18 + rnd() * 0.15, 1.1, 1.4)));
-    const inactive = Math.max(0, activated - mau);
+export interface SimulationOptions {
+  /** ISO yyyy-mm-dd the dataset is generated relative to. Defaults to today (UTC). */
+  asOfDate?: string;
+}
 
-    const apps = buildApps(seed, rnd, activated, mau);
-    const totalEligible = apps.reduce((s, a) => s + a.eligibleUsers, 0);
-    const appAdoption =
-      apps.reduce((s, a) => s + a.usage.direct.activeUsers, 0) / Math.max(1, totalEligible);
+/**
+ * Builds the Tenant read model. Deterministic for a given seed + asOfDate.
+ * Tenant/App metrics are derived from the underlying simulated user population.
+ */
+export function buildTenants(options: SimulationOptions = {}): Tenant[] {
+  const asOfDate = options.asOfDate ?? todayISO();
+
+  return SEEDS.map((seed) => {
+    const id = slug(seed.name);
+    const rnd = mulberry32(hashString(`${seed.name}|${asOfDate}`));
+
+    const users = buildUsers({
+      tenantId: id,
+      industry: seed.industry,
+      employees: seed.employees,
+      activation: seed.activation,
+      engagement: seed.engagement,
+      adoptionBias: seed.adoptionBias,
+      asOfDate,
+    });
+
+    const apps = toAppUsage(seed, rnd, users);
+    const totals = aggregateTenant(users, aggregateApps(users));
 
     const trendPct =
       Math.round((TRAJECTORY_TREND[seed.trajectory] + (rnd() - 0.5) * 0.06) * 100) / 100;
 
-    const history = buildHistory(rnd, mau, appAdoption, trendPct);
+    const history = buildHistory(asOfDate, rnd, totals.monthlyActiveUsers, totals.appAdoption, trendPct);
 
     const lastActivityOffset =
       seed.trajectory === "declining" ? Math.floor(rnd() * 9) + 2 : Math.floor(rnd() * 2);
 
     return {
-      id: slug(seed.name),
+      id,
       name: seed.name,
       industry: seed.industry,
-      employees: seed.employees,
-      activatedUsers: activated,
-      weeklyActiveUsers: wau,
-      monthlyActiveUsers: mau,
-      inactiveUsers: inactive,
-      appAdoption,
+      employees: totals.employees,
+      activatedUsers: totals.activatedUsers,
+      weeklyActiveUsers: totals.weeklyActiveUsers,
+      monthlyActiveUsers: totals.monthlyActiveUsers,
+      inactiveUsers: totals.inactiveUsers,
+      appAdoption: totals.appAdoption,
       trendPct,
       trend: toDirection(trendPct),
-      lastActivity: dayISO(lastActivityOffset),
+      lastActivity: dayISO(asOfDate, lastActivityOffset),
       apps,
       history,
     } satisfies Tenant;
