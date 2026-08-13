@@ -15,11 +15,11 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { label: "Overview", to: "/", icon: LayoutDashboard },
   { label: "Tenants", to: "/tenants", icon: Building2 },
+  { label: "TTYB", to: "/ttyb", icon: Activity },
 ];
 
 const FUTURE = [
   { label: "App Adoption", icon: Boxes },
-  { label: "TTYB", icon: Activity },
   { label: "Business Skills", icon: GraduationCap },
   { label: "Opportunities", icon: Lightbulb },
   { label: "Interventions", icon: Wrench },
@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <div className="mt-auto px-2.5 pt-6 text-[11px] leading-relaxed text-sidebar-foreground/50">
-          Iteration 1 · simulated data
+          Iteration 2 · simulated data
         </div>
       </aside>
 

@@ -11,6 +11,7 @@ function user(over: Partial<TenantUser> = {}): TenantUser {
     weeklyActive: true,
     monthlyActive: true,
     apps: [{ appId: "tasks", eligible: true, activated: true, active: true }],
+    ttyb: { used: false, interactions: 0, lastUsedDaysAgo: null, recentlyActive: false },
     ...over,
   };
 }
@@ -97,6 +98,7 @@ describe("simulation determinism and as-of date", () => {
       activation: 0.8,
       engagement: 0.6,
       adoptionBias: 0,
+      ttybPropensity: 0.2,
       asOfDate: "2026-05-01",
     });
     expect(users).toHaveLength(50);
