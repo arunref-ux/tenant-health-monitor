@@ -137,6 +137,9 @@ function tenantRowsForApp(records: TenantRecord[], appId: string): AppTenantAdop
  * apps have meaningful eligible populations and the difference is significant.
  * Presented as an adoption pattern, never as a causal recommendation.
  */
+/** Minimum portfolio-level adoption gap for a cross-app pattern to be reported. */
+export const PORTFOLIO_CROSS_APP_DELTA = 0.15;
+
 export function crossAppPatterns(
   records: TenantRecord[],
   thresholds: AdoptionThresholds = ADOPTION_THRESHOLDS,
@@ -151,8 +154,11 @@ export function crossAppPatterns(
     for (const low of rows) {
       if (high.appId === low.appId) continue;
       const delta = high.adoption - low.adoption;
-      if (delta < CROSS_APP_DELTA) continue;
-      if (adoptionBand(high.adoption, thresholds) !== "high") continue;
+      // Portfolio-wide adoption is averaged across Tenants, so it is flatter
+      // than any single Tenant's adoption. Use a portfolio delta here and keep
+      // the stricter CROSS_APP_DELTA for counting affected Tenants.
+      if (delta < PORTFOLIO_CROSS_APP_DELTA) continue;
+      if (high.adoption < thresholds.medium) continue;
       if (adoptionBand(low.adoption, thresholds) === "high") continue;
 
       const tenantsAffected = records.filter((t) => {
@@ -177,7 +183,7 @@ export function crossAppPatterns(
         appBName: low.appName,
         appBAdoption: low.adoption,
         delta,
-        pattern: `High vs ${adoptionBand(low.adoption, thresholds) === "medium" ? "Medium" : "Low"}`,
+        pattern: `${high.appName} strong · ${low.appName} weak`,
         tenantsAffected,
         description: `${high.appName} adoption is ${pct(high.adoption)}, while ${low.appName} adoption is ${pct(low.adoption)}.`,
       });
