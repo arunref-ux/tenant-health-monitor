@@ -5,7 +5,19 @@ import type { HealthCategory, HealthScore, HealthSignal, Tenant } from "./types"
  *
  *   Health = Activation (25) + Engagement (30) + Adoption (30) + Trend (15)
  */
-export const HEALTH_WEIGHTS = { activation: 25, engagement: 30, adoption: 30, trend: 15 };
+export interface HealthWeights {
+  activation: number;
+  engagement: number;
+  adoption: number;
+  trend: number;
+}
+
+export const HEALTH_WEIGHTS: HealthWeights = {
+  activation: 25,
+  engagement: 30,
+  adoption: 30,
+  trend: 15,
+};
 
 export function categorize(score: number): HealthCategory {
   if (score >= 75) return "Healthy";
@@ -13,7 +25,7 @@ export function categorize(score: number): HealthCategory {
   return "At Risk";
 }
 
-export function calculateHealth(tenant: Tenant): HealthScore {
+export function calculateHealth(tenant: Tenant, weights: HealthWeights = HEALTH_WEIGHTS): HealthScore {
   const activationRate = tenant.employees ? tenant.activatedUsers / tenant.employees : 0;
   const engagementRate = tenant.activatedUsers
     ? tenant.weeklyActiveUsers / tenant.activatedUsers
@@ -23,10 +35,10 @@ export function calculateHealth(tenant: Tenant): HealthScore {
   const trendNorm = Math.min(1, Math.max(0, (tenant.trendPct + 0.2) / 0.4));
 
   const components = {
-    activation: round1(Math.min(1, activationRate / 0.9) * HEALTH_WEIGHTS.activation),
-    engagement: round1(Math.min(1, engagementRate / 0.75) * HEALTH_WEIGHTS.engagement),
-    adoption: round1(Math.min(1, adoption / 0.8) * HEALTH_WEIGHTS.adoption),
-    trend: round1(trendNorm * HEALTH_WEIGHTS.trend),
+    activation: round1(Math.min(1, activationRate / 0.9) * weights.activation),
+    engagement: round1(Math.min(1, engagementRate / 0.75) * weights.engagement),
+    adoption: round1(Math.min(1, adoption / 0.8) * weights.adoption),
+    trend: round1(trendNorm * weights.trend),
   };
 
   const score = Math.round(
