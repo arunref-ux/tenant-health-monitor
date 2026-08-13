@@ -64,6 +64,20 @@ export function detectOpportunities(tenant: Tenant): Opportunity[] {
     });
   }
 
+  // 5. TTYB adoption opportunity — Aurumi apps are used, TTYB is not.
+  const ttyb = tenant.ttyb;
+  if (tenant.appAdoption >= 0.5 && ttyb.adoption < 0.2 && tenant.activatedUsers >= 20) {
+    const reachable = Math.max(1, Math.round(tenant.activatedUsers * 0.35) - ttyb.users);
+    add({
+      id: `${tenant.id}-ttyb-adoption`,
+      type: "TTYB Adoption Opportunity",
+      title: "TTYB adoption opportunity",
+      description: `${Math.round(tenant.appAdoption * 100)}% of eligible users actively use Aurumi Apps, but only ${Math.round(ttyb.adoption * 100)}% of ${tenant.activatedUsers} activated users have used TTYB (${ttyb.users} users).`,
+      priority: ttyb.adoption < 0.08 ? "High" : "Medium",
+      potentialUsers: reachable,
+    });
+  }
+
   const rank = { High: 0, Medium: 1, Low: 2 } as const;
   return out.sort(
     (a, b) => rank[a.priority] - rank[b.priority] || b.potentialUsers - a.potentialUsers,

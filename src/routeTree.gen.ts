@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TenantsRouteImport } from './routes/tenants'
+import { Route as TtybRouteImport } from './routes/ttyb'
 import { Route as TenantsIndexRouteImport } from './routes/tenants.index'
 import { Route as TenantsTenantIdRouteImport } from './routes/tenants.$tenantId'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const TenantsRoute = TenantsRouteImport.update({
   id: '/tenants',
   path: '/tenants',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TtybRoute = TtybRouteImport.update({
+  id: '/ttyb',
+  path: '/ttyb',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TenantsIndexRoute = TenantsIndexRouteImport.update({
@@ -38,11 +44,13 @@ const TenantsTenantIdRoute = TenantsTenantIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/tenants': typeof TenantsRouteWithChildren
+  '/ttyb': typeof TtybRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
   '/tenants/': typeof TenantsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ttyb': typeof TtybRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
   '/tenants': typeof TenantsIndexRoute
 }
@@ -50,20 +58,23 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/tenants': typeof TenantsRouteWithChildren
+  '/ttyb': typeof TtybRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
   '/tenants/': typeof TenantsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/tenants' | '/tenants/$tenantId' | '/tenants/'
+  fullPaths: '/' | '/tenants' | '/ttyb' | '/tenants/$tenantId' | '/tenants/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/tenants/$tenantId' | '/tenants'
-  id: '__root__' | '/' | '/tenants' | '/tenants/$tenantId' | '/tenants/'
+  to: '/' | '/ttyb' | '/tenants/$tenantId' | '/tenants'
+  id:
+    '__root__' | '/' | '/tenants' | '/ttyb' | '/tenants/$tenantId' | '/tenants/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   TenantsRoute: typeof TenantsRouteWithChildren
+  TtybRoute: typeof TtybRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -80,6 +91,13 @@ declare module '@tanstack/react-router' {
       path: '/tenants'
       fullPath: '/tenants'
       preLoaderRoute: typeof TenantsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ttyb': {
+      id: '/ttyb'
+      path: '/ttyb'
+      fullPath: '/ttyb'
+      preLoaderRoute: typeof TtybRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tenants/': {
@@ -115,6 +133,7 @@ const TenantsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   TenantsRoute: TenantsRouteWithChildren,
+  TtybRoute: TtybRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

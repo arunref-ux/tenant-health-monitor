@@ -1,12 +1,15 @@
 import { buildTenants, todayISO } from "@/domain/generator";
 import { calculateHealth } from "@/domain/health";
 import { detectOpportunities } from "@/domain/opportunities";
+import { extendedReachBucket, ttybAdoptionBucket } from "@/domain/ttyb";
 import type {
   HealthCategory,
   Opportunity,
   OverviewSummary,
   PortfolioFilters,
   TenantRecord,
+  TtybOverview,
+  TtybPoint,
   UsagePoint,
 } from "@/domain/types";
 
@@ -74,6 +77,19 @@ export function applyFilters(records: TenantRecord[], f: PortfolioFilters = {}):
     if (f.adoption && f.adoption !== "all" && adoptionBucket(t.appAdoption) !== f.adoption)
       return false;
     if (f.trend && f.trend !== "all" && t.trend !== f.trend) return false;
+    if (
+      f.ttybAdoption &&
+      f.ttybAdoption !== "all" &&
+      ttybAdoptionBucket(t.ttyb.adoption) !== f.ttybAdoption
+    )
+      return false;
+    if (
+      f.extendedReach &&
+      f.extendedReach !== "all" &&
+      extendedReachBucket(t.ttyb.extendedReachUsers, t.activatedUsers) !== f.extendedReach
+    )
+      return false;
+    if (f.ttybTrend && f.ttybTrend !== "all" && t.ttyb.trend !== f.ttybTrend) return false;
     return true;
   });
 
@@ -88,6 +104,16 @@ export function applyFilters(records: TenantRecord[], f: PortfolioFilters = {}):
           return t.health.score;
         case "opportunities":
           return t.opportunities.length;
+        case "ttybUsers":
+          return t.ttyb.users;
+        case "ttybAdoption":
+          return t.ttyb.adoption;
+        case "ttybExtendedReach":
+          return t.ttyb.extendedReachUsers;
+        case "ttybInteractions":
+          return t.ttyb.interactions;
+        case "ttybTrend":
+          return t.ttyb.trendPct;
         default:
           return t[key] as number;
       }
@@ -144,6 +170,8 @@ function buildOverview(records: TenantRecord[]): OverviewSummary {
       };
     });
 
+  const ttyb = buildTtybOverview(records);
+
   const allOpportunities: Opportunity[] = records.flatMap((t) => t.opportunities);
   const rank = { High: 0, Medium: 1, Low: 2 } as const;
   const topOpportunities = [...allOpportunities]
@@ -162,6 +190,64 @@ function buildOverview(records: TenantRecord[]): OverviewSummary {
     trend,
     attention,
     topOpportunities,
+    ttyb,
+  };
+}
+
+/** Portfolio TTYB rollup. Adoption uses activated users as the denominator. */
+export function buildTtybOverview(records: TenantRecord[]): TtybOverview {
+  const sum = (fn: (t: TenantRecord) => number) => records.reduce((s, t) => s + fn(t), 0);
+  const activated = sum((t) => t.activatedUsers);
+  const users = sum((t) => t.ttyb.users);
+  const days = records[0]?.ttyb.history.length ?? 0;
+  const trend: TtybPoint[] = Array.from({ length: days }, (_, i) => ({
+    date: records[0]?.ttyb.history[i]?.date ?? "",
+    users: sum((t) => t.ttyb.history[i]?.users ?? 0),
+    interactions: sum((t) => t.ttyb.history[i]?.interactions ?? 0),
+  }));
+
+  const first = trend[0]?.users ?? 0;
+  const last = trend[trend.length - 1]?.users ?? 0;
+  const growthPct = first ? Math.round(((last - first) / first) * 100) / 100 : 0;
+
+  const lowTtybHighApp = records.filter((t) => t.appAdoption >= 0.5 && t.ttyb.adoption < 0.2).length;
+  const ttybButDeclining = records.filter((t) => t.ttyb.adoption >= 0.15 && t.trendPct <= -0.08)
+    .length;
+  const decliningTtyb = records.filter((t) => t.ttyb.trend === "down").length;
+
+  const signals: TtybOverview["signals"] = [];
+  if (lowTtybHighApp > 0)
+    signals.push({
+      label: `${lowTtybHighApp} Tenants have high Aurumi adoption but low TTYB adoption`,
+      detail: "Direct app usage is healthy; TTYB has not been introduced widely yet.",
+      tone: "warning",
+    });
+  if (ttybButDeclining > 0)
+    signals.push({
+      label: `${ttybButDeclining} Tenants have meaningful TTYB usage but declining overall engagement`,
+      detail: "TTYB is in use while overall active users are falling.",
+      tone: "danger",
+    });
+  if (decliningTtyb > 0)
+    signals.push({
+      label: `${decliningTtyb} Tenants show declining TTYB usage over 30 days`,
+      detail: "TTYB users fell compared with the start of the period.",
+      tone: "warning",
+    });
+
+  return {
+    users,
+    activeUsers: sum((t) => t.ttyb.activeUsers),
+    interactions: sum((t) => t.ttyb.interactions),
+    adoption: activated ? users / activated : 0,
+    extendedReachUsers: sum((t) => t.ttyb.extendedReachUsers),
+    directUsers: sum((t) => t.ttyb.directUsers),
+    bothUsers: sum((t) => t.ttyb.bothUsers),
+    directOnlyUsers: sum((t) => t.ttyb.directOnlyUsers),
+    growthPct,
+    trend,
+    signals,
+    tenantsWithTtyb: records.filter((t) => t.ttyb.users > 0).length,
   };
 }
 
@@ -175,6 +261,8 @@ function suggestionFor(type?: string) {
       return "Launch an onboarding push for unactivated employees";
     case "Engagement Opportunity":
       return "Send a re-engagement nudge to dormant users";
+    case "TTYB Adoption Opportunity":
+      return "Introduce TTYB to Tenant users";
     default:
       return "Review account with Customer Success";
   }

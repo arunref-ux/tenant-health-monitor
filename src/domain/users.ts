@@ -1,6 +1,6 @@
 import { APPS, eligibilityShare } from "./catalog";
 import { clamp, hashString, mulberry32 } from "./random";
-import type { Industry, TenantUser, UserAppState } from "./types";
+import type { Industry, TenantUser, UserAppState, UserTtybState } from "./types";
 
 /**
  * Minimal user-level simulation.
@@ -22,6 +22,8 @@ export interface UserPopulationInput {
   engagement: number;
   /** shifts per-app adoption up/down */
   adoptionBias: number;
+  /** probability an activated user has used TTYB in the last 30 days, 0..1 */
+  ttybPropensity: number;
   asOfDate: string; // ISO yyyy-mm-dd — keeps generation deterministic per as-of date
 }
 
@@ -47,6 +49,8 @@ export function buildUsers(input: UserPopulationInput): TenantUser[] {
     const weeklyActive = activated && rnd() < input.engagement;
     const monthlyActive = activated && (weeklyActive || rnd() < 0.35);
 
+    const ttyb = simulateTtyb(rnd, activated, input.ttybPropensity);
+
     const apps: UserAppState[] = APPS.map((app) => {
       const eligible = rnd() < eligibilityShare(app.id, input.industry);
       // Eligible users can only activate an app if they activated the platform.
@@ -63,8 +67,24 @@ export function buildUsers(input: UserPopulationInput): TenantUser[] {
       weeklyActive,
       monthlyActive,
       apps,
+      ttyb,
     } satisfies TenantUser;
   });
+}
+
+/**
+ * TTYB usage for one user. Deliberately minimal: did they use it, how often,
+ * and how recently. No intents, conversations or capabilities in this iteration.
+ */
+function simulateTtyb(rnd: () => number, activated: boolean, propensity: number): UserTtybState {
+  // Only users who activated Aurumi can reach TTYB.
+  const used = activated && rnd() < clamp(propensity, 0, 1);
+  if (!used) return { used: false, interactions: 0, lastUsedDaysAgo: null, recentlyActive: false };
+  const lastUsedDaysAgo = Math.floor(rnd() ** 1.7 * 30);
+  // heavier users tend to be the more recent ones
+  const intensity = rnd() ** 1.8;
+  const interactions = Math.max(1, Math.round(intensity * 46 + (lastUsedDaysAgo <= 7 ? 3 : 0)));
+  return { used: true, interactions, lastUsedDaysAgo, recentlyActive: lastUsedDaysAgo <= 7 };
 }
 
 export interface AppAggregate {

@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { PageHeader, SectionCard } from "@/components/ts/AppShell";
 import { KpiCard } from "@/components/ts/KpiCard";
+import { AccessPatternBar } from "@/components/ts/AccessPatternBar";
+import { TtybLegend, TtybTrendChart } from "@/components/ts/TtybTrendChart";
 import { HealthBadge, PriorityBadge } from "@/components/ts/StatusBadge";
 import { TrendIndicator } from "@/components/ts/TrendIndicator";
 import { AdoptionBar } from "@/components/ts/AdoptionBar";
@@ -126,6 +128,106 @@ function OverviewPage() {
               </div>
             </SectionCard>
           </div>
+
+          <div className="grid gap-4 xl:grid-cols-3">
+            <SectionCard
+              title="TTYB adoption"
+              description="Talk to Your Business — second access path into Aurumi"
+              className="xl:col-span-2"
+              action={
+                <Link
+                  to="/ttyb"
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  View TTYB analytics →
+                </Link>
+              }
+            >
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_240px]">
+                <div>
+                  <TtybTrendChart data={data.ttyb.trend} height={168} />
+                  <div className="mt-2 flex items-center justify-between">
+                    <TtybLegend />
+                    <span className="text-xs text-muted-foreground">
+                      30-day change{" "}
+                      <TrendIndicator
+                        value={data.ttyb.growthPct}
+                        direction={
+                          data.ttyb.growthPct > 0.04
+                            ? "up"
+                            : data.ttyb.growthPct < -0.04
+                              ? "down"
+                              : "flat"
+                        }
+                        className="ml-1"
+                      />
+                    </span>
+                  </div>
+                </div>
+                <dl className="space-y-2 text-sm">
+                  <StatRow
+                    label="TTYB users (30d)"
+                    value={data.ttyb.users.toLocaleString()}
+                  />
+                  <StatRow
+                    label="TTYB adoption"
+                    value={`${Math.round(data.ttyb.adoption * 100)}%`}
+                  />
+                  <StatRow
+                    label="Interactions (30d)"
+                    value={data.ttyb.interactions.toLocaleString()}
+                  />
+                  <StatRow
+                    label="Active users (7d)"
+                    value={data.ttyb.activeUsers.toLocaleString()}
+                  />
+                  <StatRow
+                    label="Tenants using TTYB"
+                    value={`${data.ttyb.tenantsWithTtyb} / ${data.totalTenants}`}
+                  />
+                </dl>
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="Access patterns & signals"
+              description="Direct app usage vs TTYB across the portfolio"
+            >
+              <AccessPatternBar
+                directOnlyUsers={data.ttyb.directOnlyUsers}
+                bothUsers={data.ttyb.bothUsers}
+                extendedReachUsers={data.ttyb.extendedReachUsers}
+              />
+              <p className="mt-3 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  {data.ttyb.extendedReachUsers.toLocaleString()} extended reach users
+                </span>{" "}
+                use TTYB without recent direct app activity.
+              </p>
+              {data.ttyb.signals.length > 0 && (
+                <ul className="mt-3 space-y-2 border-t border-border pt-3">
+                  {data.ttyb.signals.map((s) => (
+                    <li key={s.label} className="text-xs">
+                      <p
+                        className={
+                          s.tone === "danger"
+                            ? "font-medium text-danger"
+                            : s.tone === "warning"
+                              ? "font-medium text-warning"
+                              : "font-medium text-foreground"
+                        }
+                      >
+                        {s.label}
+                      </p>
+                      <p className="text-muted-foreground">{s.detail}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+          </div>
+
+
 
           <div className="grid gap-4 xl:grid-cols-3">
             <SectionCard
@@ -245,5 +347,14 @@ function DistRow({
         {value} <span className="text-muted-foreground">· {pct(value / Math.max(1, total))}</span>
       </span>
     </li>
+  );
+}
+
+function StatRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-medium tabular text-foreground">{value}</dd>
+    </div>
   );
 }

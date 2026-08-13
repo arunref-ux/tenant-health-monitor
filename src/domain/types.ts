@@ -56,6 +56,41 @@ export interface UsagePoint {
   adoption: number;
 }
 
+/** One day of simulated TTYB usage for a Tenant. */
+export interface TtybPoint {
+  date: string; // ISO yyyy-mm-dd
+  users: number;
+  interactions: number;
+}
+
+/**
+ * Tenant-level TTYB read model (iteration 2).
+ * TTYB is a second *access path* into Aurumi, not a separate population:
+ * the same user may use Apps directly, TTYB, or both.
+ */
+export interface TtybUsage {
+  /** unique users with TTYB activity in the last 30 days */
+  users: number;
+  /** users with TTYB activity in the last 7 days */
+  activeUsers: number;
+  /** simulated TTYB interactions in the last 30 days */
+  interactions: number;
+  /** ttybUsers / activatedUsers, 0..1 */
+  adoption: number;
+  /** users with meaningful recent direct App activity */
+  directUsers: number;
+  /** direct App activity but no TTYB activity */
+  directOnlyUsers: number;
+  /** both direct App activity and TTYB activity */
+  bothUsers: number;
+  /** TTYB activity but no meaningful recent direct App activity */
+  extendedReachUsers: number;
+  /** relative change in TTYB users over the last 30 days */
+  trendPct: number;
+  trend: TrendDirection;
+  history: TtybPoint[];
+}
+
 export interface HealthSignal {
   label: string;
   detail: string;
@@ -76,6 +111,7 @@ export interface HealthScore {
 
 export type OpportunityType =
   | "Adoption Gap"
+  | "TTYB Adoption Opportunity"
   | "Usage Decline"
   | "Activation Opportunity"
   | "Engagement Opportunity";
@@ -110,6 +146,7 @@ export interface Tenant {
   lastActivity: string; // ISO date
   apps: TenantAppUsage[];
   history: UsagePoint[];
+  ttyb: TtybUsage;
 }
 
 export interface TenantRecord extends Tenant {
@@ -123,10 +160,23 @@ export interface PortfolioFilters {
   industry?: Industry | "all";
   adoption?: "all" | "high" | "medium" | "low";
   trend?: "all" | TrendDirection;
+  /** TTYB adoption bucket (ttybUsers / activatedUsers) */
+  ttybAdoption?: "all" | "high" | "medium" | "low" | "none";
+  /** TTYB extended reach as a share of activated users */
+  extendedReach?: "all" | "high" | "some" | "none";
+  ttybTrend?: "all" | TrendDirection;
   sortBy?: keyof Pick<
     Tenant,
     "name" | "employees" | "monthlyActiveUsers" | "appAdoption" | "trendPct"
-  > | "health" | "opportunities";
+  >
+    | "health"
+    | "opportunities"
+    | "activatedUsers"
+    | "ttybUsers"
+    | "ttybAdoption"
+    | "ttybExtendedReach"
+    | "ttybInteractions"
+    | "ttybTrend";
   sortDir?: "asc" | "desc";
 }
 
@@ -150,6 +200,26 @@ export interface OverviewSummary {
     suggestion: string;
   }>;
   topOpportunities: Opportunity[];
+  ttyb: TtybOverview;
+}
+
+/** Portfolio-level TTYB rollup shown on the Overview and the TTYB page. */
+export interface TtybOverview {
+  users: number;
+  activeUsers: number;
+  interactions: number;
+  /** portfolio TTYB users / activated users */
+  adoption: number;
+  extendedReachUsers: number;
+  directUsers: number;
+  bothUsers: number;
+  directOnlyUsers: number;
+  /** 30-day change in TTYB users across the portfolio */
+  growthPct: number;
+  trend: TtybPoint[];
+  /** concise, evidence-based adoption signals (no business-value claims) */
+  signals: Array<{ label: string; detail: string; tone: "warning" | "danger" | "default" }>;
+  tenantsWithTtyb: number;
 }
 
 /**
@@ -163,6 +233,18 @@ export interface UserAppState {
   active: boolean;
 }
 
+/** Minimal TTYB state for a single user — no intents/conversations/capabilities. */
+export interface UserTtybState {
+  /** used TTYB at least once in the last 30 days */
+  used: boolean;
+  /** TTYB interactions in the last 30 days */
+  interactions: number;
+  /** days since the last TTYB interaction, null when never used */
+  lastUsedDaysAgo: number | null;
+  /** TTYB activity within the last 7 days */
+  recentlyActive: boolean;
+}
+
 export interface TenantUser {
   id: string;
   tenantId: string;
@@ -171,4 +253,5 @@ export interface TenantUser {
   weeklyActive: boolean;
   monthlyActive: boolean;
   apps: UserAppState[];
+  ttyb: UserTtybState;
 }
