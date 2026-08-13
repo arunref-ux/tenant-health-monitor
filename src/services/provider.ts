@@ -1,12 +1,24 @@
+import {
+  ADOPTION_THRESHOLDS,
+  buildAdoptionIntelligence,
+  buildAppDetail,
+} from "@/domain/adoption-intelligence";
 import { buildTenants, todayISO } from "@/domain/generator";
 import { calculateHealth } from "@/domain/health";
 import { detectOpportunities } from "@/domain/opportunities";
+import { byPriority, severityRank } from "@/domain/prioritize";
 import { extendedReachBucket, ttybAdoptionBucket } from "@/domain/ttyb";
 import type {
+  AdoptionIntelligence,
+  AppAdoptionDetail,
   HealthCategory,
   Opportunity,
+  OpportunityFilters,
+  OpportunityStatus,
+  OpportunitySummary,
   OverviewSummary,
   PortfolioFilters,
+  PortfolioSignal,
   TenantRecord,
   TtybOverview,
   TtybPoint,
@@ -16,11 +28,19 @@ import type {
 /**
  * Simulated backend. The UI only ever talks to this async interface, so it can
  * later be swapped for real Aurumi APIs without touching components.
+ *
+ * All intelligence (health, opportunities, adoption aggregation) is computed in
+ * the domain layer and surfaced here — never recomputed inside components.
  */
 export interface TenantSuccessProvider {
   getOverview(): Promise<OverviewSummary>;
   listTenants(filters?: PortfolioFilters): Promise<TenantRecord[]>;
   getTenant(id: string): Promise<TenantRecord>;
+  listOpportunities(filters?: OpportunityFilters): Promise<Opportunity[]>;
+  getOpportunity(id: string): Promise<Opportunity>;
+  setOpportunityStatus(id: string, status: OpportunityStatus): Promise<Opportunity>;
+  getAdoptionIntelligence(): Promise<AdoptionIntelligence>;
+  getAppAdoption(appId: string): Promise<AppAdoptionDetail>;
 }
 
 const LATENCY_MS = 350;
@@ -43,23 +63,37 @@ function delay<T>(value: T): Promise<T> {
 const cache = new Map<string, TenantRecord[]>();
 
 /**
+ * Opportunity status overrides. Iteration 3 supports Open / Dismissed only —
+ * no assignment, tasks or intervention workflow.
+ */
+const statusOverrides = new Map<string, OpportunityStatus>();
+
+export function resetOpportunityStatuses() {
+  statusOverrides.clear();
+}
+
+function withStatus(o: Opportunity): Opportunity {
+  const override = statusOverrides.get(o.id);
+  return override ? { ...o, status: override } : o;
+}
+
+/**
  * Simulated as-of date. Data is deterministic for a given seed + as-of date,
  * and defaults to today so the prototype never shows stale dates.
  */
 export function buildDataset(asOfDate: string = todayISO()): TenantRecord[] {
   const cached = cache.get(asOfDate);
   if (cached) return cached;
-  const records = buildTenants({ asOfDate }).map((tenant) => ({
-    ...tenant,
-    health: calculateHealth(tenant),
-    opportunities: detectOpportunities(tenant),
-  }));
+  const records = buildTenants({ asOfDate }).map((tenant) => {
+    const health = calculateHealth(tenant);
+    return { ...tenant, health, opportunities: detectOpportunities(tenant, health) };
+  });
   cache.set(asOfDate, records);
   return records;
 }
 
 function dataset(): TenantRecord[] {
-  return buildDataset();
+  return buildDataset().map((t) => ({ ...t, opportunities: t.opportunities.map(withStatus) }));
 }
 
 function adoptionBucket(v: number) {
@@ -103,7 +137,7 @@ export function applyFilters(records: TenantRecord[], f: PortfolioFilters = {}):
         case "health":
           return t.health.score;
         case "opportunities":
-          return t.opportunities.length;
+          return t.opportunities.filter((o) => o.status === "Open").length;
         case "ttybUsers":
           return t.ttyb.users;
         case "ttybAdoption":
@@ -127,10 +161,71 @@ export function applyFilters(records: TenantRecord[], f: PortfolioFilters = {}):
   return rows;
 }
 
+/* ----------------------------- opportunities ----------------------------- */
+
+export function allOpportunities(records: TenantRecord[]): Opportunity[] {
+  return records.flatMap((t) => t.opportunities);
+}
+
+export function applyOpportunityFilters(
+  opportunities: Opportunity[],
+  f: OpportunityFilters = {},
+): Opportunity[] {
+  const search = (f.search ?? "").trim().toLowerCase();
+  const rows = opportunities.filter((o) => {
+    if (
+      search &&
+      !`${o.title} ${o.tenantName} ${o.type} ${o.description}`.toLowerCase().includes(search)
+    )
+      return false;
+    if (f.type && f.type !== "all" && o.type !== f.type) return false;
+    if (f.severity && f.severity !== "all" && o.severity !== f.severity) return false;
+    if (f.status && f.status !== "all" && o.status !== f.status) return false;
+    if (f.tenantId && f.tenantId !== "all" && o.tenantId !== f.tenantId) return false;
+    if (f.lens && f.lens !== "all" && o.lens !== f.lens) return false;
+    if (f.appId && !o.appIds.includes(f.appId)) return false;
+    return true;
+  });
+
+  const dir = f.sortDir === "asc" ? 1 : -1;
+  const sortBy = f.sortBy ?? "priority";
+  return [...rows].sort((a, b) => {
+    switch (sortBy) {
+      case "severity":
+        return (severityRank(a.severity) - severityRank(b.severity)) * (dir === 1 ? 1 : -1) * -1;
+      case "affectedUsers":
+        return (a.affectedUsers - b.affectedUsers) * dir;
+      case "tenant":
+        return a.tenantName.localeCompare(b.tenantName) * dir;
+      case "type":
+        return a.type.localeCompare(b.type) * dir;
+      case "detected":
+        return a.detectedAt.localeCompare(b.detectedAt) * dir;
+      default:
+        return dir === 1 ? -byPriority(a, b) : byPriority(a, b);
+    }
+  });
+}
+
+export function summariseOpportunities(opportunities: Opportunity[]): OpportunitySummary {
+  const open = opportunities.filter((o) => o.status === "Open");
+  return {
+    open: open.length,
+    dismissed: opportunities.length - open.length,
+    highSeverity: open.filter((o) => o.severity === "High").length,
+    tenantsAffected: new Set(open.map((o) => o.tenantId)).size,
+    trendingUp: open.filter((o) => o.trend === "down").length,
+  };
+}
+
+/* -------------------------------- overview ------------------------------- */
+
 function buildOverview(records: TenantRecord[]): OverviewSummary {
   const count = (c: HealthCategory) => records.filter((t) => t.health.category === c).length;
   const totalEmployees = records.reduce((s, t) => s + t.employees, 0);
   const activeUsers = records.reduce((s, t) => s + t.monthlyActiveUsers, 0);
+  const activatedUsers = records.reduce((s, t) => s + t.activatedUsers, 0);
+  const weeklyActive = records.reduce((s, t) => s + t.weeklyActiveUsers, 0);
   const totalEligible = records.reduce(
     (s, t) => s + t.apps.reduce((x, a) => x + a.eligibleUsers, 0),
     0,
@@ -155,10 +250,7 @@ function buildOverview(records: TenantRecord[]): OverviewSummary {
     .sort((a, b) => a.health.score - b.health.score)
     .slice(0, 6)
     .map((t) => {
-      const order = ["Usage Decline", "Activation Opportunity", "Adoption Gap", "Engagement Opportunity"];
-      const top = [...t.opportunities].sort(
-        (a, b) => order.indexOf(a.type) - order.indexOf(b.type),
-      )[0];
+      const top = [...t.opportunities].filter((o) => o.status === "Open").sort(byPriority)[0];
       return {
         tenantId: t.id,
         tenantName: t.name,
@@ -171,12 +263,9 @@ function buildOverview(records: TenantRecord[]): OverviewSummary {
     });
 
   const ttyb = buildTtybOverview(records);
-
-  const allOpportunities: Opportunity[] = records.flatMap((t) => t.opportunities);
-  const rank = { High: 0, Medium: 1, Low: 2 } as const;
-  const topOpportunities = [...allOpportunities]
-    .sort((a, b) => rank[a.priority] - rank[b.priority] || b.potentialUsers - a.potentialUsers)
-    .slice(0, 5);
+  const opportunities = allOpportunities(records);
+  const openOpportunities = opportunities.filter((o) => o.status === "Open");
+  const topOpportunities = [...openOpportunities].sort(byPriority).slice(0, 5);
 
   return {
     totalTenants: records.length,
@@ -186,13 +275,79 @@ function buildOverview(records: TenantRecord[]): OverviewSummary {
     totalEmployees,
     activeUsers,
     averageAdoption: totalAppActive / Math.max(1, totalEligible),
-    openOpportunities: allOpportunities.length,
+    openOpportunities: openOpportunities.length,
     trend,
     attention,
     topOpportunities,
     ttyb,
+    activationRate: activatedUsers / Math.max(1, totalEmployees),
+    engagementRate: weeklyActive / Math.max(1, activatedUsers),
+    opportunities: summariseOpportunities(opportunities),
+    signals: buildPortfolioSignals(records, openOpportunities),
   };
 }
+
+/**
+ * Portfolio lens signals. Every signal is derived from the same intelligence
+ * the other lenses use, and points at a drilldown target.
+ */
+export function buildPortfolioSignals(
+  records: TenantRecord[],
+  openOpportunities: Opportunity[],
+): PortfolioSignal[] {
+  const signals: PortfolioSignal[] = [];
+  const intelligence = buildAdoptionIntelligence(records);
+
+  for (const app of intelligence.apps) {
+    if (app.tenantsWithGap >= 3) {
+      signals.push({
+        id: `app-${app.appId}`,
+        label: `${app.appName} adoption is below ${Math.round(ADOPTION_THRESHOLDS.medium * 100)}% in ${app.tenantsWithGap} Tenants`,
+        detail: `${Math.round(app.adoption * 100)}% portfolio adoption across ${app.eligibleUsers.toLocaleString()} eligible users.`,
+        tone: app.tenantsWithGap >= 8 ? "danger" : "warning",
+        appId: app.appId,
+        target: "adoption",
+      });
+    }
+  }
+
+  const declining = records.filter((t) => t.trendPct <= -0.08).length;
+  if (declining > 0)
+    signals.push({
+      id: "declining-engagement",
+      label: `${declining} Tenants show declining engagement over 30 days`,
+      detail: "Active users fell by 8% or more compared with the start of the period.",
+      tone: declining >= records.length / 3 ? "danger" : "warning",
+      target: "tenants",
+    });
+
+  const activationGaps = openOpportunities.filter((o) => o.type === "Activation Gap").length;
+  if (activationGaps > 0)
+    signals.push({
+      id: "activation-gaps",
+      label: `${activationGaps} Tenants have significant activation gaps`,
+      detail: "Fewer than 80% of employees have activated Aurumi.",
+      tone: "warning",
+      target: "opportunities",
+    });
+
+  const ttybGaps = openOpportunities.filter((o) => o.type === "TTYB Adoption").length;
+  if (ttybGaps > 0)
+    signals.push({
+      id: "ttyb-gaps",
+      label: `${ttybGaps} Tenants use Aurumi Apps well but barely use TTYB`,
+      detail: "Direct app adoption is at or above 50% while TTYB adoption is below 20%.",
+      tone: "default",
+      target: "ttyb",
+    });
+
+  return signals
+    .sort((a, b) => toneRank(a.tone) - toneRank(b.tone))
+    .slice(0, 6);
+}
+
+const toneRank = (tone: PortfolioSignal["tone"]) =>
+  tone === "danger" ? 0 : tone === "warning" ? 1 : 2;
 
 /** Portfolio TTYB rollup. Adoption uses activated users as the denominator. */
 export function buildTtybOverview(records: TenantRecord[]): TtybOverview {
@@ -224,8 +379,8 @@ export function buildTtybOverview(records: TenantRecord[]): TtybOverview {
     });
   if (ttybButDeclining > 0)
     signals.push({
-      label: `${ttybButDeclining} Tenants have meaningful TTYB usage but declining overall engagement`,
-      detail: "TTYB is in use while overall active users are falling.",
+      label: `${ttybButDeclining} Tenants have meaningful TTYB usage but declining overall usage`,
+      detail: "TTYB adoption alone is not holding overall engagement up.",
       tone: "danger",
     });
   if (decliningTtyb > 0)
@@ -253,16 +408,18 @@ export function buildTtybOverview(records: TenantRecord[]): TtybOverview {
 
 function suggestionFor(type?: string) {
   switch (type) {
-    case "Adoption Gap":
-      return "Schedule an enablement session with the app owner";
+    case "App Adoption Gap":
+      return "Review app enablement with the Tenant";
     case "Usage Decline":
-      return "Run a usage review call with the sponsor";
-    case "Activation Opportunity":
-      return "Launch an onboarding push for unactivated employees";
-    case "Engagement Opportunity":
-      return "Send a re-engagement nudge to dormant users";
-    case "TTYB Adoption Opportunity":
-      return "Introduce TTYB to Tenant users";
+      return "Run a usage review with the sponsor";
+    case "Activation Gap":
+      return "Review onboarding of unactivated employees";
+    case "Engagement Gap":
+      return "Review dormant activated users";
+    case "TTYB Adoption":
+      return "Review TTYB awareness at this Tenant";
+    case "Cross-App Adoption":
+      return "Compare app usage patterns with the Tenant";
     default:
       return "Review account with Customer Success";
   }
@@ -279,5 +436,27 @@ export const provider: TenantSuccessProvider = {
     const found = dataset().find((t) => t.id === id);
     if (!found) throw new Error(`Tenant "${id}" not found`);
     return delay(found);
+  },
+  async listOpportunities(filters) {
+    return delay(applyOpportunityFilters(allOpportunities(dataset()), filters));
+  },
+  async getOpportunity(id) {
+    const found = allOpportunities(dataset()).find((o) => o.id === id);
+    if (!found) throw new Error(`Opportunity "${id}" not found`);
+    return delay(found);
+  },
+  async setOpportunityStatus(id, status) {
+    statusOverrides.set(id, status);
+    const found = allOpportunities(dataset()).find((o) => o.id === id);
+    if (!found) throw new Error(`Opportunity "${id}" not found`);
+    return delay(found);
+  },
+  async getAdoptionIntelligence() {
+    return delay(buildAdoptionIntelligence(dataset()));
+  },
+  async getAppAdoption(appId) {
+    const detail = buildAppDetail(dataset(), appId);
+    if (!detail.tenantsWithAccess) throw new Error(`App "${appId}" not found`);
+    return delay(detail);
   },
 };
