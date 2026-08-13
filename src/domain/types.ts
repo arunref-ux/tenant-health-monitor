@@ -341,7 +341,15 @@ export interface OverviewSummary {
   }>;
   topOpportunities: Opportunity[];
   ttyb: TtybOverview;
+  /** Portfolio lens — activation and engagement rates across the Tenant base */
+  activationRate: number;
+  engagementRate: number;
+  /** Portfolio lens — opportunity rollup */
+  opportunities: OpportunitySummary;
+  /** Portfolio lens — drillable observations */
+  signals: PortfolioSignal[];
 }
+
 
 /** Portfolio-level TTYB rollup shown on the Overview and the TTYB page. */
 export interface TtybOverview {
