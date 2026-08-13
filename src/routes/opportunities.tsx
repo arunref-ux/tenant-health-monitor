@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Building2, Flame, Lightbulb, Search } from "lucide-react";
 import { PageHeader, SectionCard } from "@/components/ts/AppShell";
 import { KpiCard } from "@/components/ts/KpiCard";
@@ -22,8 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { provider } from "@/services/provider";
-import { opportunitiesQuery, tenantsQuery } from "@/services/hooks";
+import { opportunitiesQuery, tenantsQuery, useSetOpportunityStatus } from "@/services/hooks";
 import type {
   Opportunity,
   OpportunityFilters,
@@ -86,7 +85,6 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 function OpportunitiesPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const queryClient = useQueryClient();
 
   const [text, setText] = useState("");
   const [severity, setSeverity] = useState<OpportunitySeverity | "all">("all");
@@ -116,11 +114,7 @@ function OpportunitiesPage() {
   const allOpen = useQuery(opportunitiesQuery({ status: "Open" }));
   const tenants = useQuery(tenantsQuery({ sortBy: "name", sortDir: "asc" }));
 
-  const setStatusMutation = useMutation({
-    mutationFn: ({ id, next }: { id: string; next: OpportunityStatus }) =>
-      provider.setOpportunityStatus(id, next),
-    onSuccess: () => queryClient.invalidateQueries(),
-  });
+  const setStatusMutation = useSetOpportunityStatus();
 
   const selected = data?.find((o) => o.id === search.id);
   const open = allOpen.data ?? [];
@@ -363,7 +357,7 @@ function OpportunitiesPage() {
               <OpportunityDetail
                 opportunity={selected}
                 busy={setStatusMutation.isPending}
-                onStatus={(next) => setStatusMutation.mutate({ id: selected.id, next })}
+                onStatus={(next) => setStatusMutation.mutate({ id: selected.id, status: next })}
               />
             </>
           )}

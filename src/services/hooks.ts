@@ -1,6 +1,6 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
 import { provider } from "./provider";
-import type { OpportunityFilters, PortfolioFilters } from "@/domain/types";
+import type { OpportunityFilters, OpportunityStatus, PortfolioFilters } from "@/domain/types";
 
 export const overviewQuery = () =>
   queryOptions({
@@ -43,3 +43,16 @@ export const appAdoptionQuery = (appId: string) =>
     queryKey: ["app-adoption", appId],
     queryFn: () => provider.getAppAdoption(appId),
   });
+
+/**
+ * Service-level mutation boundary. The UI never talks to the provider
+ * directly — it goes through this hook, mirroring the read-side query helpers.
+ */
+export function useSetOpportunityStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: OpportunityStatus }) =>
+      provider.setOpportunityStatus(id, status),
+    onSuccess: () => queryClient.invalidateQueries(),
+  });
+}
