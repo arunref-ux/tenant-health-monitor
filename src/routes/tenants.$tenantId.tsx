@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
 import { PageHeader, SectionCard } from "@/components/ts/AppShell";
 import { KpiCard } from "@/components/ts/KpiCard";
+import { AccessPatternBar } from "@/components/ts/AccessPatternBar";
+import { TtybLegend, TtybTrendChart } from "@/components/ts/TtybTrendChart";
 import { CategoryChip, HealthBadge, PriorityBadge } from "@/components/ts/StatusBadge";
 import { TrendIndicator } from "@/components/ts/TrendIndicator";
 import { AdoptionBar } from "@/components/ts/AdoptionBar";
@@ -157,11 +159,7 @@ function Tenant360() {
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-4">
                 <MiniStat label="TTYB users" value={tenant.ttyb.users.toLocaleString()} />
-                <MiniStat
-                  label="TTYB adoption"
-                  value={pct(tenant.ttyb.adoption)}
-                  hint="Of activated users"
-                />
+                <MiniStat label="TTYB adoption" value={pct(tenant.ttyb.adoption)} />
                 <MiniStat
                   label="Interactions"
                   value={tenant.ttyb.interactions.toLocaleString()}
@@ -311,6 +309,15 @@ function Signal({
         <span className="font-medium text-foreground">{label}</span>
         <span className="text-muted-foreground"> — {detail}</span>
       </span>
+    </div>
+  );
+}
+
+function StatRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-medium tabular text-foreground">{value}</dd>
     </div>
   );
 }
