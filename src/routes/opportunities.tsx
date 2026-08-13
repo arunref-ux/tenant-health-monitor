@@ -357,7 +357,7 @@ function OpportunitiesPage() {
               <OpportunityDetail
                 opportunity={selected}
                 busy={setStatusMutation.isPending}
-                onStatus={(next) => setStatusMutation.mutate({ id: selected.id, next })}
+                onStatus={(next) => setStatusMutation.mutate({ id: selected.id, status: next })}
               />
             </>
           )}
