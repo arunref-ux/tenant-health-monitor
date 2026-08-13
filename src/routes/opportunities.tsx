@@ -34,10 +34,10 @@ import type {
 } from "@/domain/types";
 
 interface OpportunitySearch {
-  id?: string;
-  type?: OpportunityType;
-  tenantId?: string;
-  appId?: string;
+  id?: string | undefined;
+  type?: OpportunityType | undefined;
+  tenantId?: string | undefined;
+  appId?: string | undefined;
 }
 
 const TYPES: OpportunityType[] = [
@@ -54,12 +54,12 @@ const LENSES: OpportunityLens[] = ["Tenant", "Aurumi", "Portfolio"];
 
 export const Route = createFileRoute("/opportunities")({
   validateSearch: (search: Record<string, unknown>): OpportunitySearch => ({
-    id: typeof search.id === "string" ? search.id : undefined,
-    type: TYPES.includes(search.type as OpportunityType)
-      ? (search.type as OpportunityType)
+    id: typeof search["id"] === "string" ? (search["id"] as string) : undefined,
+    type: TYPES.includes(search["type"] as OpportunityType)
+      ? (search["type"] as OpportunityType)
       : undefined,
-    tenantId: typeof search.tenantId === "string" ? search.tenantId : undefined,
-    appId: typeof search.appId === "string" ? search.appId : undefined,
+    tenantId: typeof search["tenantId"] === "string" ? (search["tenantId"] as string) : undefined,
+    appId: typeof search["appId"] === "string" ? (search["appId"] as string) : undefined,
   }),
   head: () => ({
     meta: [
@@ -105,7 +105,7 @@ function OpportunitiesPage() {
       status,
       lens,
       tenantId,
-      appId: search.appId,
+      ...(search.appId ? { appId: search.appId } : {}),
       sortBy,
       sortDir: "desc",
     }),
@@ -470,7 +470,7 @@ export function OpportunityDetail({
               <Link
                 key={name}
                 to="/adoption"
-                search={{ app: opportunity.appIds[i] }}
+                search={{ app: opportunity.appIds[i] ?? undefined }}
                 className="rounded border border-border bg-surface-muted px-2 py-1 text-xs font-medium text-foreground hover:border-primary hover:text-primary"
               >
                 {name}

@@ -298,15 +298,15 @@ function OverviewPage() {
                         >
                           {o.tenantName}
                         </Link>
-                        <PriorityBadge priority={o.priority} />
+                        <PriorityBadge priority={o.severity} />
                       </div>
                       <p className="mt-1 text-xs font-medium text-muted-foreground">{o.type}</p>
                       <p className="mt-1 text-sm text-muted-foreground">{o.description}</p>
                       <div className="mt-2">
-                        <AdoptionBar value={Math.min(1, o.potentialUsers / 120)} showLabel={false} width="w-full" />
+                        <AdoptionBar value={Math.min(1, o.affectedUsers / 120)} showLabel={false} width="w-full" />
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground tabular">
-                        ~{o.potentialUsers} users of upside
+                        {o.affectedUsers.toLocaleString()} users affected
                       </p>
                     </li>
                   ))}
