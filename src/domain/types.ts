@@ -78,7 +78,7 @@ export type OpportunityType =
   | "Adoption Gap"
   | "Usage Decline"
   | "Activation Opportunity"
-  | "Feature Adoption";
+  | "Engagement Opportunity";
 
 export type OpportunityPriority = "High" | "Medium" | "Low";
 

@@ -56,8 +56,8 @@ export function detectOpportunities(tenant: Tenant): Opportunity[] {
   if (tenant.inactiveUsers >= 15) {
     add({
       id: `${tenant.id}-engagement`,
-      type: "Feature Adoption",
-      title: "Dormant activated users",
+      type: "Engagement Opportunity",
+      title: "Activated but not active users",
       description: `${tenant.inactiveUsers} activated employees have not used Aurumi in the last 30 days.`,
       priority: tenant.inactiveUsers > tenant.activatedUsers * 0.3 ? "Medium" : "Low",
       potentialUsers: tenant.inactiveUsers,

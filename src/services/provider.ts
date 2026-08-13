@@ -120,7 +120,7 @@ function buildOverview(records: TenantRecord[]): OverviewSummary {
     .sort((a, b) => a.health.score - b.health.score)
     .slice(0, 6)
     .map((t) => {
-      const order = ["Usage Decline", "Activation Opportunity", "Adoption Gap", "Feature Adoption"];
+      const order = ["Usage Decline", "Activation Opportunity", "Adoption Gap", "Engagement Opportunity"];
       const top = [...t.opportunities].sort(
         (a, b) => order.indexOf(a.type) - order.indexOf(b.type),
       )[0];
@@ -164,7 +164,7 @@ function suggestionFor(type?: string) {
       return "Run a usage review call with the sponsor";
     case "Activation Opportunity":
       return "Launch an onboarding push for unactivated employees";
-    case "Feature Adoption":
+    case "Engagement Opportunity":
       return "Send a re-engagement nudge to dormant users";
     default:
       return "Review account with Customer Success";
